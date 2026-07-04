@@ -119,6 +119,11 @@ NSString* const MFSAppStoreMetadataErrorDomain = @"dev.mineek.muffinstore.metada
 	if (backingAccount)
 	{
 		NSArray<NSHTTPCookie*>* cookies = [backingAccount ams_cookiesForURL:request.URL];
+		NSArray<NSString*>* cookieNames = [[cookies valueForKey:@"name"]
+			sortedArrayUsingSelector:@selector(caseInsensitiveCompare:)];
+		NSLog(@"MFS metadata request: host=%@, cookies=%@",
+			request.URL.host,
+			[cookieNames componentsJoinedByString:@","]);
 		NSDictionary<NSString*, NSString*>* cookieHeaders =
 			[NSHTTPCookie requestHeaderFieldsWithCookies:cookies ?: @[]];
 		for (NSString* header in cookieHeaders)
@@ -320,9 +325,10 @@ NSString* const MFSAppStoreMetadataErrorDomain = @"dev.mineek.muffinstore.metada
 		NSString* customerMessage = propertyList[@"customerMessage"];
 		NSArray* items = propertyList[@"songList"];
 		NSUInteger itemCount = [items isKindOfClass:NSArray.class] ? items.count : 0;
-		NSLog(@"MFS metadata response: failureType=%@, itemCount=%lu",
+		NSLog(@"MFS metadata response: failureType=%@, itemCount=%lu, tokenAccepted=%@",
 			failureType.length > 0 ? failureType : @"none",
-			(unsigned long)itemCount);
+			(unsigned long)itemCount,
+			[HTTPResponse valueForHTTPHeaderField:@"X-Apple-Tk"] ?: @"unknown");
 		if ([self isAuthenticationFailureType:failureType] && allowAuthenticationRetry)
 		{
 			[self refreshAuthenticationForAccount:backingAccount
