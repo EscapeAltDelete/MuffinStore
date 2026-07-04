@@ -73,6 +73,13 @@ NSString* const MFSAppStoreMetadataErrorDomain = @"dev.mineek.muffinstore.metada
 		[request respondsToSelector:@selector(ams_addXTokenHeaderWithAccount:)])
 	{
 		[request ams_addXTokenHeaderWithAccount:account.backingAccount];
+		NSArray<NSHTTPCookie*>* cookies = [account.backingAccount ams_cookiesForURL:request.URL];
+		NSDictionary<NSString*, NSString*>* cookieHeaders =
+			[NSHTTPCookie requestHeaderFieldsWithCookies:cookies ?: @[]];
+		for (NSString* header in cookieHeaders)
+		{
+			[request setValue:cookieHeaders[header] forHTTPHeaderField:header];
+		}
 	}
 	if ([request valueForHTTPHeaderField:@"X-Token"].length == 0)
 	{
