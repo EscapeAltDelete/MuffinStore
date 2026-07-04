@@ -141,6 +141,11 @@ NSString* const MFSAppStoreMetadataErrorDomain = @"dev.mineek.muffinstore.metada
 
 		NSString* failureType = [NSString stringWithFormat:@"%@", propertyList[@"failureType"] ?: @""];
 		NSString* customerMessage = propertyList[@"customerMessage"];
+		NSArray* items = propertyList[@"songList"];
+		NSUInteger itemCount = [items isKindOfClass:NSArray.class] ? items.count : 0;
+		NSLog(@"MFS metadata response: failureType=%@, itemCount=%lu",
+			failureType.length > 0 ? failureType : @"none",
+			(unsigned long)itemCount);
 		if ([failureType isEqualToString:@"9610"])
 		{
 			completion(nil, [self errorWithCode:MFSAppStoreMetadataErrorLicenseRequired
@@ -156,7 +161,6 @@ NSString* const MFSAppStoreMetadataErrorDomain = @"dev.mineek.muffinstore.metada
 			return;
 		}
 
-		NSArray* items = propertyList[@"songList"];
 		NSDictionary* item = [items isKindOfClass:NSArray.class] ? items.firstObject : nil;
 		NSString* downloadURLString = [item isKindOfClass:NSDictionary.class] ? item[@"URL"] : nil;
 		NSURL* downloadURL = downloadURLString.length > 0 ? [NSURL URLWithString:downloadURLString] : nil;
