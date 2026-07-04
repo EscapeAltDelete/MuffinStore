@@ -11,6 +11,7 @@ NSString* const MFSAppStoreMetadataErrorDomain = @"dev.mineek.muffinstore.metada
 - (NSError*)errorWithCode:(MFSAppStoreMetadataErrorCode)code description:(NSString*)description;
 - (NSError*)authenticationErrorWithUnderlyingError:(NSError* _Nullable)underlyingError;
 - (UIViewController* _Nullable)authenticationPresenter;
+- (NSString*)commerceHostForAccount:(ACAccount* _Nullable)account;
 - (NSMutableURLRequest* _Nullable)requestForAppIdentifier:(long long)appIdentifier
 	versionIdentifier:(long long)versionIdentifier
 	account:(SSAccount*)account
@@ -99,8 +100,10 @@ NSString* const MFSAppStoreMetadataErrorDomain = @"dev.mineek.muffinstore.metada
 		return nil;
 	}
 
+	NSString* commerceHost = [self commerceHostForAccount:backingAccount];
 	NSString* URLString = [NSString stringWithFormat:
-		@"https://p25-buy.itunes.apple.com/WebObjects/MZFinance.woa/wa/volumeStoreDownloadProduct?guid=%@",
+		@"https://%@/WebObjects/MZFinance.woa/wa/volumeStoreDownloadProduct?guid=%@",
+		commerceHost,
 		guid];
 	NSMutableURLRequest* request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:URLString]
 		cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
@@ -143,6 +146,32 @@ NSString* const MFSAppStoreMetadataErrorDomain = @"dev.mineek.muffinstore.metada
 		return nil;
 	}
 	return request;
+}
+
+- (NSString*)commerceHostForAccount:(ACAccount*)account
+{
+	if (!account)
+	{
+		return @"buy.itunes.apple.com";
+	}
+
+	NSURL* commerceURL = [NSURL URLWithString:@"https://buy.itunes.apple.com/"];
+	NSArray<NSHTTPCookie*>* cookies = [account ams_cookiesForURL:commerceURL];
+	NSCharacterSet* nonDecimalDigits = NSCharacterSet.decimalDigitCharacterSet.invertedSet;
+	for (NSHTTPCookie* cookie in cookies)
+	{
+		if ([cookie.name caseInsensitiveCompare:@"itspod"] != NSOrderedSame)
+		{
+			continue;
+		}
+
+		NSString* pod = cookie.value;
+		if (pod.length > 0 && [pod rangeOfCharacterFromSet:nonDecimalDigits].location == NSNotFound)
+		{
+			return [NSString stringWithFormat:@"p%@-buy.itunes.apple.com", pod];
+		}
+	}
+	return @"buy.itunes.apple.com";
 }
 
 - (UIViewController*)authenticationPresenter
