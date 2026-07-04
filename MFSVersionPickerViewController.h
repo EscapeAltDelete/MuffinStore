@@ -6,6 +6,8 @@ typedef void (^MFSVersionPickerCompletion)(NSDictionary* selectedVersion);
 
 @property (nonatomic, copy) MFSVersionPickerCompletion completionHandler;
 
-- (instancetype)initWithVersions:(NSArray*)versions completion:(MFSVersionPickerCompletion)completion;
+- (instancetype)initWithAppIdentifier:(long long)appIdentifier
+	versions:(NSArray*)versions
+	completion:(MFSVersionPickerCompletion)completion;
 
 @end

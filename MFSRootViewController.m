@@ -231,7 +231,10 @@
 		}
 		dispatch_async(dispatch_get_main_queue(), ^
 		{
-			MFSVersionPickerViewController* picker = [[MFSVersionPickerViewController alloc] initWithVersions:versionIds completion:^(NSDictionary* selectedVersion)
+			MFSVersionPickerViewController* picker = [[MFSVersionPickerViewController alloc]
+				initWithAppIdentifier:appId
+				versions:versionIds
+				completion:^(NSDictionary* selectedVersion)
 			{
 				[self downloadAppWithAppId:appId versionId:[selectedVersion[@"external_identifier"] longLongValue]];
 			}];
