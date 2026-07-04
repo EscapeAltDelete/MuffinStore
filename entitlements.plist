@@ -6,6 +6,8 @@
 	<true/>
 	<key>application-identifier</key>
     <string>dev.mineek.muffinstore</string>
+	<key>com.apple.accounts.appleaccount.fullaccess</key>
+	<true/>
 	<key>com.apple.CommCenter.fine-grained</key>
 	<array>
 		<string>data-allowed-write</string>
@@ -17,6 +19,10 @@
 	<key>com.apple.lsapplicationworkspace.rebuildappdatabases</key>
 	<true/>
 	<key>com.apple.itunesstored.private</key>
+	<true/>
+	<key>com.apple.private.accounts.allaccounts</key>
+	<true/>
+	<key>com.apple.private.applemediaservices</key>
 	<true/>
 	<key>com.apple.private.uninstall.deletion</key>
 	<true/>
@@ -45,10 +51,6 @@
 	<key>com.apple.security.exception.files.absolute-path.read-write</key>
 	<array>
 		<string>/</string>
-	</array>
-	<key>com.apple.CommCenter.fine-grained</key>
-	<array>
-		<string>data-allowed-write</string>
 	</array>
 </dict>
 </plist>

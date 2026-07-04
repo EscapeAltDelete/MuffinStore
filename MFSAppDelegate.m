@@ -34,14 +34,6 @@
 	_rootViewController = [[UINavigationController alloc] initWithRootViewController:[[MFSRootViewController alloc] init]];
 	_window.rootViewController = _rootViewController;
 	[_window makeKeyAndVisible];
-	NSURL* launchURL = launchOptions[UIApplicationLaunchOptionsURLKey];
-	if (launchURL)
-	{
-		dispatch_async(dispatch_get_main_queue(), ^
-		{
-			[self openVersionsURL:launchURL];
-		});
-	}
 	return YES;
 }
 
