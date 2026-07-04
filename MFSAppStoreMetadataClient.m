@@ -3,8 +3,32 @@
 #import "StoreServices.h"
 
 #import <CommonCrypto/CommonDigest.h>
+#import <UIKit/UIKit.h>
 
 NSString* const MFSAppStoreMetadataErrorDomain = @"dev.mineek.muffinstore.metadata";
+
+@interface MFSAppStoreMetadataClient ()
+
+- (NSError*)errorWithCode:(MFSAppStoreMetadataErrorCode)code description:(NSString*)description;
+- (NSError*)authenticationErrorWithUnderlyingError:(NSError* _Nullable)underlyingError;
+- (NSString*)guidForAccountName:(NSString*)accountName;
+- (UIViewController* _Nullable)authenticationPresenter;
+- (NSMutableURLRequest* _Nullable)requestForAppIdentifier:(long long)appIdentifier
+	versionIdentifier:(long long)versionIdentifier
+	account:(SSAccount*)account
+	backingAccount:(ACAccount* _Nullable)backingAccount
+	error:(NSError**)error;
+- (void)refreshAuthenticationForAccount:(ACAccount* _Nullable)account
+	completion:(void (^)(ACAccount* _Nullable account, NSError* _Nullable error))completion;
+- (BOOL)isAuthenticationFailureType:(NSString*)failureType;
+- (void)resolveDownloadURLForAppIdentifier:(long long)appIdentifier
+	versionIdentifier:(long long)versionIdentifier
+	account:(SSAccount*)account
+	backingAccount:(ACAccount* _Nullable)backingAccount
+	allowAuthenticationRetry:(BOOL)allowAuthenticationRetry
+	completion:(void (^)(NSURL* _Nullable downloadURL, NSError* _Nullable error))completion;
+
+@end
 
 @implementation MFSAppStoreMetadataClient
 
@@ -13,6 +37,20 @@ NSString* const MFSAppStoreMetadataErrorDomain = @"dev.mineek.muffinstore.metada
 	return [NSError errorWithDomain:MFSAppStoreMetadataErrorDomain
 		code:code
 		userInfo:@{NSLocalizedDescriptionKey: description}];
+}
+
+- (NSError*)authenticationErrorWithUnderlyingError:(NSError*)underlyingError
+{
+	NSMutableDictionary* userInfo = [@{
+		NSLocalizedDescriptionKey: @"App Store authentication could not be completed. Open the App Store, sign in, and try again."
+	} mutableCopy];
+	if (underlyingError)
+	{
+		userInfo[NSUnderlyingErrorKey] = underlyingError;
+	}
+	return [NSError errorWithDomain:MFSAppStoreMetadataErrorDomain
+		code:MFSAppStoreMetadataErrorAuthenticationUnavailable
+		userInfo:userInfo];
 }
 
 - (NSString*)guidForAccountName:(NSString*)accountName
@@ -45,13 +83,30 @@ NSString* const MFSAppStoreMetadataErrorDomain = @"dev.mineek.muffinstore.metada
 		return;
 	}
 
+	[self resolveDownloadURLForAppIdentifier:appIdentifier
+		versionIdentifier:versionIdentifier
+		account:account
+		backingAccount:account.backingAccount
+		allowAuthenticationRetry:YES
+		completion:completion];
+}
+
+- (NSMutableURLRequest*)requestForAppIdentifier:(long long)appIdentifier
+	versionIdentifier:(long long)versionIdentifier
+	account:(SSAccount*)account
+	backingAccount:(ACAccount*)backingAccount
+	error:(NSError**)error
+{
 	NSString* directoryServicesIdentifier = account.uniqueIdentifier.stringValue;
 	NSString* accountName = account.accountName ?: directoryServicesIdentifier;
 	if (directoryServicesIdentifier.length == 0 || accountName.length == 0)
 	{
-		completion(nil, [self errorWithCode:MFSAppStoreMetadataErrorAuthenticationUnavailable
-			description:@"The current App Store session is missing its account identifier. Open the App Store and sign in again."]);
-		return;
+		if (error)
+		{
+			*error = [self errorWithCode:MFSAppStoreMetadataErrorAuthenticationUnavailable
+			description:@"The current App Store session is missing its account identifier. Open the App Store and sign in again."];
+		}
+		return nil;
 	}
 
 	NSString* guid = [self guidForAccountName:accountName];
@@ -69,11 +124,11 @@ NSString* const MFSAppStoreMetadataErrorDomain = @"dev.mineek.muffinstore.metada
 		@"X-Dsid": directoryServicesIdentifier,
 		@"iCloud-DSID": directoryServicesIdentifier
 	};
-	if (account.backingAccount &&
+	if (backingAccount &&
 		[request respondsToSelector:@selector(ams_addXTokenHeaderWithAccount:)])
 	{
-		[request ams_addXTokenHeaderWithAccount:account.backingAccount];
-		NSArray<NSHTTPCookie*>* cookies = [account.backingAccount ams_cookiesForURL:request.URL];
+		[request ams_addXTokenHeaderWithAccount:backingAccount];
+		NSArray<NSHTTPCookie*>* cookies = [backingAccount ams_cookiesForURL:request.URL];
 		NSDictionary<NSString*, NSString*>* cookieHeaders =
 			[NSHTTPCookie requestHeaderFieldsWithCookies:cookies ?: @[]];
 		for (NSString* header in cookieHeaders)
@@ -91,9 +146,12 @@ NSString* const MFSAppStoreMetadataErrorDomain = @"dev.mineek.muffinstore.metada
 	}
 	if ([request valueForHTTPHeaderField:@"X-Token"].length == 0)
 	{
-		completion(nil, [self errorWithCode:MFSAppStoreMetadataErrorAuthenticationUnavailable
-			description:@"The current App Store session has no usable purchase token. Open the App Store and sign in again."]);
-		return;
+		if (error)
+		{
+			*error = [self errorWithCode:MFSAppStoreMetadataErrorAuthenticationUnavailable
+			description:@"The current App Store session has no usable purchase token. Open the App Store and sign in again."];
+		}
+		return nil;
 	}
 	if (account.storeFrontIdentifier.length > 0)
 	{
@@ -113,7 +171,125 @@ NSString* const MFSAppStoreMetadataErrorDomain = @"dev.mineek.muffinstore.metada
 		error:&serializationError];
 	if (!request.HTTPBody)
 	{
-		completion(nil, serializationError);
+		if (error)
+		{
+			*error = serializationError;
+		}
+		return nil;
+	}
+	return request;
+}
+
+- (UIViewController*)authenticationPresenter
+{
+	UIWindow* selectedWindow = nil;
+	for (UIScene* scene in UIApplication.sharedApplication.connectedScenes)
+	{
+		if (scene.activationState != UISceneActivationStateForegroundActive ||
+			![scene isKindOfClass:UIWindowScene.class])
+		{
+			continue;
+		}
+
+		UIWindowScene* windowScene = (UIWindowScene*)scene;
+		for (UIWindow* window in windowScene.windows)
+		{
+			if (window.isKeyWindow)
+			{
+				selectedWindow = window;
+				break;
+			}
+			if (!selectedWindow && !window.hidden)
+			{
+				selectedWindow = window;
+			}
+		}
+		if (selectedWindow)
+		{
+			break;
+		}
+	}
+
+	UIViewController* presenter = selectedWindow.rootViewController;
+	while (presenter.presentedViewController && !presenter.presentedViewController.isBeingDismissed)
+	{
+		presenter = presenter.presentedViewController;
+	}
+	return presenter;
+}
+
+- (void)refreshAuthenticationForAccount:(ACAccount*)account
+	completion:(void (^)(ACAccount* account, NSError* error))completion
+{
+	if (!account)
+	{
+		completion(nil, [self authenticationErrorWithUnderlyingError:nil]);
+		return;
+	}
+
+	dispatch_async(dispatch_get_main_queue(), ^
+	{
+		AMSAuthenticateOptions* options = [AMSAuthenticateOptions new];
+		options.allowServerDialogs = YES;
+		options.authenticationType = 0; // Silent preferred; use the system dialog only if required.
+		options.canMakeAccountActive = NO;
+		options.credentialSource = 2;
+		options.clientInfo = [AMSProcessInfo currentProcess];
+		options.debugReason = @"MuffinStore compatibility metadata";
+
+		UIViewController* presenter = [self authenticationPresenter];
+		if (presenter)
+		{
+			[options setPresentingViewController:presenter];
+		}
+
+		AMSAuthenticateTask* task = [[AMSAuthenticateTask alloc] initWithAccount:account options:options];
+		AMSPromise* promise = [task performAuthentication];
+		if (!task || !promise)
+		{
+			completion(nil, [self authenticationErrorWithUnderlyingError:nil]);
+			return;
+		}
+		[promise addFinishBlock:^(AMSAuthenticateResult* result, NSError* authenticationError)
+		{
+			(void)task;
+			if (authenticationError)
+			{
+				completion(nil, [self authenticationErrorWithUnderlyingError:authenticationError]);
+				return;
+			}
+
+			ACAccount* refreshedAccount = [result respondsToSelector:@selector(account)]
+				? result.account
+				: nil;
+			completion(refreshedAccount ?: account, nil);
+		}];
+	});
+}
+
+- (BOOL)isAuthenticationFailureType:(NSString*)failureType
+{
+	return [failureType isEqualToString:@"1008"]
+		|| [failureType isEqualToString:@"2034"]
+		|| [failureType isEqualToString:@"2042"];
+}
+
+- (void)resolveDownloadURLForAppIdentifier:(long long)appIdentifier
+	versionIdentifier:(long long)versionIdentifier
+	account:(SSAccount*)account
+	backingAccount:(ACAccount*)backingAccount
+	allowAuthenticationRetry:(BOOL)allowAuthenticationRetry
+	completion:(void (^)(NSURL* downloadURL, NSError* error))completion
+{
+	NSError* requestError = nil;
+	NSMutableURLRequest* request = [self requestForAppIdentifier:appIdentifier
+		versionIdentifier:versionIdentifier
+		account:account
+		backingAccount:backingAccount
+		error:&requestError];
+	if (!request)
+	{
+		completion(nil, requestError);
 		return;
 	}
 
@@ -153,6 +329,31 @@ NSString* const MFSAppStoreMetadataErrorDomain = @"dev.mineek.muffinstore.metada
 		NSLog(@"MFS metadata response: failureType=%@, itemCount=%lu",
 			failureType.length > 0 ? failureType : @"none",
 			(unsigned long)itemCount);
+		if ([self isAuthenticationFailureType:failureType] && allowAuthenticationRetry)
+		{
+			[self refreshAuthenticationForAccount:backingAccount
+				completion:^(ACAccount* refreshedAccount, NSError* authenticationError)
+			{
+				if (authenticationError)
+				{
+					completion(nil, authenticationError);
+					return;
+				}
+				[self resolveDownloadURLForAppIdentifier:appIdentifier
+					versionIdentifier:versionIdentifier
+					account:account
+					backingAccount:refreshedAccount
+					allowAuthenticationRetry:NO
+					completion:completion];
+			}];
+			return;
+		}
+		if ([self isAuthenticationFailureType:failureType])
+		{
+			completion(nil, [self errorWithCode:MFSAppStoreMetadataErrorAuthenticationUnavailable
+				description:@"Apple requires App Store authentication before historical builds can be checked."]);
+			return;
+		}
 		if ([failureType isEqualToString:@"9610"])
 		{
 			completion(nil, [self errorWithCode:MFSAppStoreMetadataErrorLicenseRequired
