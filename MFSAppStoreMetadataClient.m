@@ -118,7 +118,15 @@ NSString* const MFSAppStoreMetadataErrorDomain = @"dev.mineek.muffinstore.metada
 	};
 	if (backingAccount)
 	{
-		[request ams_addXTokenHeaderWithAccount:backingAccount];
+		NSString* refreshedToken = [backingAccount ams_password];
+		if (refreshedToken.length > 0)
+		{
+			[request setValue:refreshedToken forHTTPHeaderField:@"X-Token"];
+		}
+		else
+		{
+			[request ams_addXTokenHeaderWithAccount:backingAccount];
+		}
 		NSArray<NSHTTPCookie*>* cookies = [backingAccount ams_cookiesForURL:request.URL];
 		NSLog(@"MFS metadata request: host=%@, cookieCount=%lu, tokenPresent=%@",
 			request.URL.host,

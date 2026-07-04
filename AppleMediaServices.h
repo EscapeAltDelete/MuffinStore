@@ -8,6 +8,7 @@ NS_ASSUME_NONNULL_BEGIN
 @interface ACAccount (MFSAppleMediaServices)
 
 - (nullable NSArray<NSHTTPCookie*>*)ams_cookiesForURL:(NSURL*)URL;
+- (nullable NSString*)ams_password;
 
 @end
 
