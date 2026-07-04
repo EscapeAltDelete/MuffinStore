@@ -2,7 +2,6 @@
 #import "AppleMediaServices.h"
 #import "StoreServices.h"
 
-#import <CommonCrypto/CommonDigest.h>
 #import <UIKit/UIKit.h>
 
 NSString* const MFSAppStoreMetadataErrorDomain = @"dev.mineek.muffinstore.metadata";
@@ -11,7 +10,6 @@ NSString* const MFSAppStoreMetadataErrorDomain = @"dev.mineek.muffinstore.metada
 
 - (NSError*)errorWithCode:(MFSAppStoreMetadataErrorCode)code description:(NSString*)description;
 - (NSError*)authenticationErrorWithUnderlyingError:(NSError* _Nullable)underlyingError;
-- (NSString*)guidForAccountName:(NSString*)accountName;
 - (UIViewController* _Nullable)authenticationPresenter;
 - (NSMutableURLRequest* _Nullable)requestForAppIdentifier:(long long)appIdentifier
 	versionIdentifier:(long long)versionIdentifier
@@ -53,24 +51,6 @@ NSString* const MFSAppStoreMetadataErrorDomain = @"dev.mineek.muffinstore.metada
 		userInfo:userInfo];
 }
 
-- (NSString*)guidForAccountName:(NSString*)accountName
-{
-	// This is the same stable Configurator-style GUID used by ipatool clients.
-	NSString* seed = [NSString stringWithFormat:@"CAFEBABE%@CAFEBABE", accountName];
-	NSData* seedData = [seed dataUsingEncoding:NSUTF8StringEncoding];
-	unsigned char digest[CC_SHA1_DIGEST_LENGTH];
-	CC_SHA1(seedData.bytes, (CC_LONG)seedData.length, digest);
-
-	NSMutableString* hash = [NSMutableString stringWithCapacity:CC_SHA1_DIGEST_LENGTH * 2];
-	for (NSUInteger index = 0; index < CC_SHA1_DIGEST_LENGTH; index++)
-	{
-		[hash appendFormat:@"%02x", digest[index]];
-	}
-
-	NSString* hashPart = [hash substringWithRange:NSMakeRange(10, 10)];
-	return [[@"00" stringByAppendingString:hashPart] uppercaseString];
-}
-
 - (void)resolveDownloadURLForAppIdentifier:(long long)appIdentifier
 	versionIdentifier:(long long)versionIdentifier
 	completion:(void (^)(NSURL* downloadURL, NSError* error))completion
@@ -98,8 +78,7 @@ NSString* const MFSAppStoreMetadataErrorDomain = @"dev.mineek.muffinstore.metada
 	error:(NSError**)error
 {
 	NSString* directoryServicesIdentifier = account.uniqueIdentifier.stringValue;
-	NSString* accountName = account.accountName ?: directoryServicesIdentifier;
-	if (directoryServicesIdentifier.length == 0 || accountName.length == 0)
+	if (directoryServicesIdentifier.length == 0)
 	{
 		if (error)
 		{
@@ -109,7 +88,17 @@ NSString* const MFSAppStoreMetadataErrorDomain = @"dev.mineek.muffinstore.metada
 		return nil;
 	}
 
-	NSString* guid = [self guidForAccountName:accountName];
+	NSString* guid = [SSDevice currentDevice].uniqueDeviceIdentifier;
+	if (guid.length == 0)
+	{
+		if (error)
+		{
+			*error = [self errorWithCode:MFSAppStoreMetadataErrorAuthenticationUnavailable
+				description:@"The device identifier required by the App Store is unavailable."];
+		}
+		return nil;
+	}
+
 	NSString* URLString = [NSString stringWithFormat:
 		@"https://p25-buy.itunes.apple.com/WebObjects/MZFinance.woa/wa/volumeStoreDownloadProduct?guid=%@",
 		guid];
