@@ -1,6 +1,7 @@
 #import <Foundation/Foundation.h>
 
-@class ACAccount;
+@interface ACAccount : NSObject
+@end
 
 @interface ACAccount (MFSAppleMediaServices)
 
