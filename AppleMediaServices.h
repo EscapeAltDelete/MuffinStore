@@ -11,6 +11,12 @@ NS_ASSUME_NONNULL_BEGIN
 
 @end
 
+@interface NSMutableURLRequest (MFSAppleMediaServices)
+
+- (void)ams_addXTokenHeaderWithAccount:(ACAccount*)account;
+
+@end
+
 @interface AMSProcessInfo : NSObject
 
 + (instancetype)currentProcess;

@@ -118,12 +118,12 @@ NSString* const MFSAppStoreMetadataErrorDomain = @"dev.mineek.muffinstore.metada
 	};
 	if (backingAccount)
 	{
+		[request ams_addXTokenHeaderWithAccount:backingAccount];
 		NSArray<NSHTTPCookie*>* cookies = [backingAccount ams_cookiesForURL:request.URL];
-		NSArray<NSString*>* cookieNames = [[cookies valueForKey:@"name"]
-			sortedArrayUsingSelector:@selector(caseInsensitiveCompare:)];
-		NSLog(@"MFS metadata request: host=%@, cookies=%@",
+		NSLog(@"MFS metadata request: host=%@, cookieCount=%lu, tokenPresent=%@",
 			request.URL.host,
-			[cookieNames componentsJoinedByString:@","]);
+			(unsigned long)cookies.count,
+			[request valueForHTTPHeaderField:@"X-Token"].length > 0 ? @"yes" : @"no");
 		NSDictionary<NSString*, NSString*>* cookieHeaders =
 			[NSHTTPCookie requestHeaderFieldsWithCookies:cookies ?: @[]];
 		for (NSString* header in cookieHeaders)
@@ -328,7 +328,7 @@ NSString* const MFSAppStoreMetadataErrorDomain = @"dev.mineek.muffinstore.metada
 		NSLog(@"MFS metadata response: failureType=%@, itemCount=%lu, tokenAccepted=%@",
 			failureType.length > 0 ? failureType : @"none",
 			(unsigned long)itemCount,
-			[HTTPResponse valueForHTTPHeaderField:@"X-Apple-Tk"] ?: @"unknown");
+			[HTTPResponse valueForHTTPHeaderField:@"Apple-Tk"] ?: @"unknown");
 		if ([self isAuthenticationFailureType:failureType] && allowAuthenticationRetry)
 		{
 			[self refreshAuthenticationForAccount:backingAccount
