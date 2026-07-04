@@ -8,6 +8,8 @@
     <string>dev.mineek.muffinstore</string>
 	<key>com.apple.accounts.appleaccount.fullaccess</key>
 	<true/>
+	<key>com.apple.authkit.client.internal</key>
+	<true/>
 	<key>com.apple.CommCenter.fine-grained</key>
 	<array>
 		<string>data-allowed-write</string>
@@ -51,6 +53,10 @@
 	<key>com.apple.security.exception.files.absolute-path.read-write</key>
 	<array>
 		<string>/</string>
+	</array>
+	<key>com.apple.security.exception.mach-lookup.global-name</key>
+	<array>
+		<string>com.apple.ak.auth.xpc</string>
 	</array>
 	<key>keychain-access-groups</key>
 	<array>
