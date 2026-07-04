@@ -1,4 +1,5 @@
 #import "MFSAppStoreMetadataClient.h"
+#import "AppleMediaServices.h"
 #import "StoreServices.h"
 
 #import <CommonCrypto/CommonDigest.h>
@@ -45,12 +46,11 @@ NSString* const MFSAppStoreMetadataErrorDomain = @"dev.mineek.muffinstore.metada
 	}
 
 	NSString* directoryServicesIdentifier = account.uniqueIdentifier.stringValue;
-	NSString* token = account.passwordEquivalentToken;
 	NSString* accountName = account.accountName ?: directoryServicesIdentifier;
-	if (directoryServicesIdentifier.length == 0 || token.length == 0 || accountName.length == 0)
+	if (directoryServicesIdentifier.length == 0 || accountName.length == 0)
 	{
 		completion(nil, [self errorWithCode:MFSAppStoreMetadataErrorAuthenticationUnavailable
-			description:@"The current App Store session does not expose a usable authentication token. Open the App Store and sign in again."]);
+			description:@"The current App Store session is missing its account identifier. Open the App Store and sign in again."]);
 		return;
 	}
 
@@ -67,9 +67,27 @@ NSString* const MFSAppStoreMetadataErrorDomain = @"dev.mineek.muffinstore.metada
 		@"Content-Type": @"application/x-apple-plist",
 		@"User-Agent": @"Configurator/2.17 (Macintosh; OS X 15.2; 24C5089c) AppleWebKit/0620.1.16.11.6",
 		@"X-Dsid": directoryServicesIdentifier,
-		@"iCloud-DSID": directoryServicesIdentifier,
-		@"X-Token": token
+		@"iCloud-DSID": directoryServicesIdentifier
 	};
+	if (account.backingAccount &&
+		[request respondsToSelector:@selector(ams_addXTokenHeaderWithAccount:)])
+	{
+		[request ams_addXTokenHeaderWithAccount:account.backingAccount];
+	}
+	if ([request valueForHTTPHeaderField:@"X-Token"].length == 0)
+	{
+		NSString* legacyToken = account.passwordEquivalentToken;
+		if (legacyToken.length > 0)
+		{
+			[request setValue:legacyToken forHTTPHeaderField:@"X-Token"];
+		}
+	}
+	if ([request valueForHTTPHeaderField:@"X-Token"].length == 0)
+	{
+		completion(nil, [self errorWithCode:MFSAppStoreMetadataErrorAuthenticationUnavailable
+			description:@"The current App Store session has no usable purchase token. Open the App Store and sign in again."]);
+		return;
+	}
 	if (account.storeFrontIdentifier.length > 0)
 	{
 		[request setValue:account.storeFrontIdentifier forHTTPHeaderField:@"X-Apple-Store-Front"];
