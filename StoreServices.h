@@ -5,8 +5,6 @@
 @interface SSAccount : NSObject
 
 @property (nonatomic, readonly) ACAccount* backingAccount;
-@property (nonatomic, readonly, copy) NSString* passwordEquivalentToken;
-@property (nonatomic, readonly, copy) NSString* storeFrontIdentifier;
 @property (nonatomic, readonly, retain) NSNumber* uniqueIdentifier;
 
 @end

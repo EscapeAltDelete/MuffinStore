@@ -113,10 +113,8 @@ NSString* const MFSAppStoreMetadataErrorDomain = @"dev.mineek.muffinstore.metada
 		@"X-Dsid": directoryServicesIdentifier,
 		@"iCloud-DSID": directoryServicesIdentifier
 	};
-	if (backingAccount &&
-		[request respondsToSelector:@selector(ams_addXTokenHeaderWithAccount:)])
+	if (backingAccount)
 	{
-		[request ams_addXTokenHeaderWithAccount:backingAccount];
 		NSArray<NSHTTPCookie*>* cookies = [backingAccount ams_cookiesForURL:request.URL];
 		NSDictionary<NSString*, NSString*>* cookieHeaders =
 			[NSHTTPCookie requestHeaderFieldsWithCookies:cookies ?: @[]];
@@ -125,28 +123,6 @@ NSString* const MFSAppStoreMetadataErrorDomain = @"dev.mineek.muffinstore.metada
 			[request setValue:cookieHeaders[header] forHTTPHeaderField:header];
 		}
 	}
-	if ([request valueForHTTPHeaderField:@"X-Token"].length == 0)
-	{
-		NSString* legacyToken = account.passwordEquivalentToken;
-		if (legacyToken.length > 0)
-		{
-			[request setValue:legacyToken forHTTPHeaderField:@"X-Token"];
-		}
-	}
-	if ([request valueForHTTPHeaderField:@"X-Token"].length == 0)
-	{
-		if (error)
-		{
-			*error = [self errorWithCode:MFSAppStoreMetadataErrorAuthenticationUnavailable
-			description:@"The current App Store session has no usable purchase token. Open the App Store and sign in again."];
-		}
-		return nil;
-	}
-	if (account.storeFrontIdentifier.length > 0)
-	{
-		[request setValue:account.storeFrontIdentifier forHTTPHeaderField:@"X-Apple-Store-Front"];
-	}
-
 	NSDictionary* payload = @{
 		@"creditDisplay": @"",
 		@"guid": guid,
