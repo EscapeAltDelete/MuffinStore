@@ -4,4 +4,6 @@
 
 @interface MFSRootViewController : PSListController
 
+- (void)browseVersionsForAppIdentifier:(long long)appIdentifier;
+
 @end

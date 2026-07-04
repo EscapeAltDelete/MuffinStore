@@ -142,7 +142,7 @@
 
 - (NSString*)getAboutText
 {
-	return @"MuffinStore v1.3\nMade by Mineek\nhttps://github.com/mineek/MuffinStore";
+	return @"MuffinStore v1.4\nMade by Mineek\nCompatibility metadata fork by EscapeAltDelete";
 }
 
 - (void)showAlert:(NSString*)title message:(NSString*)message
@@ -259,6 +259,16 @@
 		});
 	}];
 	[task resume];
+}
+
+- (void)browseVersionsForAppIdentifier:(long long)appIdentifier
+{
+	if (appIdentifier <= 0)
+	{
+		[self showAlert:@"Invalid App ID" message:@"The App Store app ID must be a positive number."];
+		return;
+	}
+	[self getAllAppVersionIdsFromServer:appIdentifier];
 }
 
 - (void)promptForVersionId:(long long)appId

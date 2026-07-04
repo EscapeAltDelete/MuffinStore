@@ -22,6 +22,10 @@ The target app must already be in the signed-in account's purchase history.
 Use the refresh button in the picker to discard cached compatibility metadata
 and check again.
 
+The picker can also be opened directly with
+`muffinstore://versions?appId=1514873602`, replacing the value with the target
+app's numeric App Store ID.
+
 For downloading older versions you can choose between entering a app's older version's identifier manually, or getting them from a API. You might consider getting them from the API a invasion of privacy, as it needs to also send the app's app id you want to download with the request. If you want to use this app without using a external API except the App Store, you can just enter a id manually. You can get them from ipatool-py, and numerous other places.
 
 ## Support Me
